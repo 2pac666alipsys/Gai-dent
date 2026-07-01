@@ -1,0 +1,6 @@
+{
+  "name": "Gaiädent",
+  "description": "Sistema profesional de consolidación y gestión de pedidos odontológicos en Bolivia con asistente de IA Gäyita.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
