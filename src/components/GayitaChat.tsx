@@ -177,7 +177,13 @@ export default function GayitaChat({
           {/* Header */}
           <div className="bg-emerald-600 p-4 text-white flex items-center justify-between shadow-md">
             <div className="flex items-center gap-3">
-              <GaiadentMascot size="sm" isAnimated={true} />
+              <GaiadentMascot 
+                size="sm" 
+                isAnimated={true} 
+                onClick={onClose} 
+                className="hover:scale-110 active:scale-95 transition-all" 
+                title="Minimizar chat"
+              />
               <div>
                 <h3 className="font-semibold text-sm flex items-center gap-1">
                   Gäyita IA <Sparkles className="w-3.5 h-3.5 text-mint-300 fill-mint-300" />
@@ -191,7 +197,7 @@ export default function GayitaChat({
             <button
               id="close-gayita-chat"
               onClick={onClose}
-              className="p-1.5 hover:bg-emerald-700 rounded-full transition-colors"
+              className="p-1.5 hover:bg-emerald-700 rounded-full transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

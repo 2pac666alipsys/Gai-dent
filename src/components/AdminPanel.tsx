@@ -45,6 +45,7 @@ export default function AdminPanel({ currentUser }: AdminPanelProps) {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [clientSearch, setClientSearch] = useState('');
 
   // Modals / Forms
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -79,6 +80,110 @@ export default function AdminPanel({ currentUser }: AdminPanelProps) {
   const [isMasterVerifyOpen, setIsMasterVerifyOpen] = useState(false);
   const [verifyingMaster, setVerifyingMaster] = useState<MasterOrder | null>(null);
   const [tempReceivedQuantities, setTempReceivedQuantities] = useState<Record<string, number>>({});
+
+  // Dentist management states
+  const [isDentistModalOpen, setIsDentistModalOpen] = useState(false);
+  const [editingDentist, setEditingDentist] = useState<UserProfile | null>(null);
+  const [dentistName, setDentistName] = useState('');
+  const [dentistEmail, setDentistEmail] = useState('');
+  const [dentistPhone, setDentistPhone] = useState('');
+  const [dentistClinic, setDentistClinic] = useState('');
+  const [dentistAddress, setDentistAddress] = useState('');
+  const [dentistPin, setDentistPin] = useState('');
+  const [dentistIsActive, setDentistIsActive] = useState(true);
+
+  const handleOpenDentistModal = (dent: UserProfile | null = null) => {
+    if (dent) {
+      setEditingDentist(dent);
+      setDentistName(dent.name);
+      setDentistEmail(dent.email);
+      setDentistPhone(dent.phone);
+      setDentistClinic(dent.clinicName || '');
+      setDentistAddress(dent.address || '');
+      setDentistPin(dent.pinCode || '');
+      setDentistIsActive(dent.isActive);
+    } else {
+      setEditingDentist(null);
+      setDentistName('');
+      setDentistEmail('');
+      setDentistPhone('');
+      setDentistClinic('');
+      setDentistAddress('');
+      setDentistPin('');
+      setDentistIsActive(true);
+    }
+    setIsDentistModalOpen(true);
+  };
+
+  const handleSaveDentist = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dentistName || !dentistEmail || !dentistPhone) return;
+
+    let updatedList: UserProfile[];
+    if (editingDentist) {
+      updatedList = users.map(u => u.id === editingDentist.id ? {
+        ...u,
+        name: dentistName,
+        email: dentistEmail,
+        phone: dentistPhone,
+        clinicName: dentistClinic,
+        address: dentistAddress,
+        pinCode: dentistPin || undefined,
+        isActive: dentistIsActive
+      } : u);
+      alert(`Ficha del Dr(a). ${dentistName} modificada con éxito.`);
+      GaiadentStorage.addAuditLog(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'Modificar Odontólogo',
+        `Se editó la cuenta del odontólogo: ${dentistName}`
+      );
+    } else {
+      const newDent: UserProfile = {
+        id: `usr-dent-${Date.now()}`,
+        role: UserRole.DENTIST,
+        name: dentistName,
+        email: dentistEmail,
+        phone: dentistPhone,
+        clinicName: dentistClinic,
+        address: dentistAddress,
+        city: currentUser.city || 'Oruro',
+        regionId: currentUser.regionId || 'reg-oruro',
+        isActive: true,
+        pinCode: dentistPin || undefined
+      };
+      updatedList = [...users, newDent];
+      alert(`Odontólogo ${dentistName} registrado en el sistema.`);
+      GaiadentStorage.addAuditLog(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'Crear Odontólogo',
+        `Se registró un nuevo odontólogo: ${dentistName}`
+      );
+    }
+
+    GaiadentStorage.setUsers(updatedList);
+    setUsers(updatedList);
+    setIsDentistModalOpen(false);
+  };
+
+  const handleDeleteDentist = (usrId: string, name: string) => {
+    if (confirm(`¿Está seguro de que desea eliminar permanentemente la cuenta de ${name}? Esta acción es irreversible.`)) {
+      const updated = users.filter(u => u.id !== usrId);
+      GaiadentStorage.setUsers(updated);
+      setUsers(updated);
+      GaiadentStorage.addAuditLog(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'Eliminar Odontólogo',
+        `Se eliminó la cuenta del odontólogo: ${name}`
+      );
+      alert(`Cuenta del Dr(a). ${name} eliminada con éxito.`);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -874,27 +979,138 @@ export default function AdminPanel({ currentUser }: AdminPanelProps) {
       )}
 
       {activeTab === 'clients' && (
-        <div className="bg-white rounded-3xl p-6 border border-emerald-100 shadow-sm">
-          <h3 className="font-extrabold text-sm text-emerald-950 uppercase tracking-wide mb-4">Registro Clínico de Odontólogos en Bolivia</h3>
+        <div className="bg-white rounded-3xl p-6 border border-emerald-100 shadow-sm space-y-6">
+          
+          {/* Header Controls */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+            <div>
+              <h3 className="font-extrabold text-sm text-emerald-950 uppercase tracking-wide">Registro Clínico de Odontólogos en Bolivia</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">Control y administración directa de cuentas de odontólogos y consultorios del sistema.</p>
+            </div>
+            <button
+              onClick={() => handleOpenDentistModal(null)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-100 flex items-center gap-1.5 self-start md:self-auto"
+            >
+              <Plus className="w-4 h-4" /> Registrar Odontólogo
+            </button>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {users.filter(u => u.role === UserRole.DENTIST).map(dent => (
-              <div key={dent.id} className="border border-emerald-50 p-4 rounded-2xl bg-emerald-50/10">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-2xl">🩺</span>
-                  <span className="text-[9px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full uppercase">
-                    Activo
-                  </span>
+          {/* Search bar */}
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-slate-400" />
+            </span>
+            <input
+              type="text"
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder="Buscar odontólogos por nombre, clínica, celular o dirección..."
+              className="w-full text-xs pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all placeholder-slate-400"
+            />
+          </div>
+
+          {/* Dentists Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {users
+              .filter(u => u.role === UserRole.DENTIST)
+              .filter(dent => {
+                const query = clientSearch.toLowerCase();
+                return dent.name.toLowerCase().includes(query) ||
+                       (dent.clinicName && dent.clinicName.toLowerCase().includes(query)) ||
+                       (dent.phone && dent.phone.includes(query)) ||
+                       (dent.address && dent.address.toLowerCase().includes(query));
+              })
+              .map(dent => (
+                <div key={dent.id} className="border border-slate-200 hover:border-emerald-200 bg-white hover:shadow-xs p-5 rounded-3xl flex flex-col justify-between transition-all">
+                  <div>
+                    {/* Header: Role and Active status */}
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-[9px] bg-emerald-50 border border-emerald-100 text-emerald-800 font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                        Odontólogo
+                      </span>
+                      <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full ${dent.isActive ? 'bg-emerald-600/10 text-emerald-800' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                        {dent.isActive ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+
+                    <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                      🩺 {dent.name}
+                    </h4>
+                    
+                    {dent.clinicName && (
+                      <p className="text-xs font-bold text-emerald-800 mt-1">
+                        🏢 {dent.clinicName}
+                      </p>
+                    )}
+
+                    <div className="mt-4 space-y-1.5 text-[11px] text-slate-500 leading-tight">
+                      {dent.address && (
+                        <p className="flex items-start gap-1.5 bg-slate-50 p-2 rounded-xl text-slate-500 border border-slate-100">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                          <span>{dent.address}</span>
+                        </p>
+                      )}
+                      <p className="flex items-center gap-1.5 pt-1"><span className="text-slate-400">📞</span> <strong className="font-semibold text-slate-600">Celular:</strong> {dent.phone}</p>
+                      <p className="flex items-center gap-1.5"><span className="text-slate-400">✉</span> <strong className="font-semibold text-slate-600">Email:</strong> {dent.email}</p>
+                      <p className="flex items-center gap-1.5"><span className="text-slate-400">📍</span> <strong className="font-semibold text-slate-600">Región:</strong> {dent.city || 'Oruro'} ({dent.regionId || 'reg-oruro'})</p>
+                      
+                      {dent.pinCode && (
+                        <span className="text-[9px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-100/50 rounded-lg px-2 py-0.5 inline-block mt-2">
+                          🔑 PIN: {dent.pinCode}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center gap-2">
+                    <button
+                      onClick={() => handleOpenDentistModal(dent)}
+                      className="flex-1 py-2 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200/80 hover:border-emerald-100 font-bold text-xs flex items-center justify-center gap-1 transition-all"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Editar Cuenta
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        const updated = users.map(u => u.id === dent.id ? { ...u, isActive: !u.isActive } : u);
+                        GaiadentStorage.setUsers(updated);
+                        setUsers(updated);
+                        alert(`Estado del odontólogo ${dent.name} actualizado.`);
+                      }}
+                      className={`px-3 py-2 rounded-xl font-bold text-xs border transition-all ${
+                        dent.isActive 
+                          ? 'bg-red-50 hover:bg-red-100/80 text-red-700 border-red-200' 
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                      }`}
+                      title={dent.isActive ? 'Dar de Baja Temporal' : 'Activar Cuenta'}
+                    >
+                      {dent.isActive ? 'Baja' : 'Alta'}
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteDentist(dent.id, dent.name)}
+                      className="p-2 rounded-xl bg-slate-50 hover:bg-red-50 border border-slate-200/80 hover:border-red-100 text-slate-400 hover:text-red-600 transition-all"
+                      title="Eliminar Cuenta Permanentemente"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <h4 className="font-extrabold text-xs text-emerald-950">{dent.name}</h4>
-                <p className="text-[11px] text-emerald-800 font-semibold">{dent.clinicName}</p>
-                <div className="mt-3 space-y-1 text-[11px] text-gray-500 leading-tight">
-                  <p>📍 Dirección: {dent.address}</p>
-                  <p>📞 Teléfono: {dent.phone}</p>
-                  <p>✉ Correo: {dent.email}</p>
-                </div>
+              ))}
+
+            {users.filter(u => u.role === UserRole.DENTIST).filter(dent => {
+              const query = clientSearch.toLowerCase();
+              return dent.name.toLowerCase().includes(query) ||
+                     (dent.clinicName && dent.clinicName.toLowerCase().includes(query)) ||
+                     (dent.phone && dent.phone.includes(query)) ||
+                     (dent.address && dent.address.toLowerCase().includes(query));
+            }).length === 0 && (
+              <div className="col-span-full py-12 text-center text-slate-400">
+                <Users className="w-12 h-12 mx-auto text-slate-300 mb-2" />
+                <p className="font-bold text-xs">No se encontraron odontólogos con ese criterio de búsqueda.</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
@@ -1357,6 +1573,154 @@ export default function AdminPanel({ currentUser }: AdminPanelProps) {
                   Asignar y Enviar
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Dentist Profile Add/Edit Modal */}
+      <AnimatePresence>
+        {isDentistModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full border border-emerald-100 shadow-2xl relative"
+            >
+              {/* Close button */}
+              <button
+                onClick={() => setIsDentistModalOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-extrabold text-sm p-1 hover:bg-slate-100 rounded-full transition-all"
+                type="button"
+              >
+                ✕
+              </button>
+
+              <h3 className="font-extrabold text-sm text-emerald-950 mb-4 flex items-center gap-1.5">
+                🩺 {editingDentist ? 'Modificar Ficha de Odontólogo' : 'Registrar Nuevo Odontólogo'}
+              </h3>
+
+              <form onSubmit={handleSaveDentist} className="space-y-4 text-xs">
+                {/* Dentist Name */}
+                <div>
+                  <label className="text-[10px] font-bold text-emerald-900 block mb-1">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    required
+                    value={dentistName}
+                    onChange={(e) => setDentistName(e.target.value)}
+                    placeholder="Ej: Dr. Fernando Camacho"
+                    className="w-full border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs text-slate-800"
+                  />
+                </div>
+
+                {/* Email and Phone */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-emerald-900 block mb-1">Email de Contacto *</label>
+                    <input
+                      type="email"
+                      required
+                      value={dentistEmail}
+                      onChange={(e) => setDentistEmail(e.target.value)}
+                      placeholder="camacho@gaiadent.com"
+                      className="w-full border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-emerald-900 block mb-1">Teléfono / Celular *</label>
+                    <input
+                      type="text"
+                      required
+                      value={dentistPhone}
+                      onChange={(e) => setDentistPhone(e.target.value)}
+                      placeholder="+591 7XXXXXXX"
+                      className="w-full border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Clinic Name */}
+                <div>
+                  <label className="text-[10px] font-bold text-emerald-900 block mb-1">Nombre de la Clínica / Consultorio *</label>
+                  <input
+                    type="text"
+                    required
+                    value={dentistClinic}
+                    onChange={(e) => setDentistClinic(e.target.value)}
+                    placeholder="Ej: Consultorio Dental Camacho & Asociados"
+                    className="w-full border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 focus:outline-none text-xs text-slate-800"
+                  />
+                </div>
+
+                {/* Clinic Address */}
+                <div>
+                  <label className="text-[10px] font-bold text-emerald-900 block mb-1">Dirección del Consultorio *</label>
+                  <input
+                    type="text"
+                    required
+                    value={dentistAddress}
+                    onChange={(e) => setDentistAddress(e.target.value)}
+                    placeholder="Ej: Av. Villarroel #250 entre 6 de Octubre y Potosí"
+                    className="w-full border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 focus:outline-none text-xs text-slate-800"
+                  />
+                </div>
+
+                {/* PIN Code */}
+                <div>
+                  <label className="text-[10px] font-bold text-emerald-900 block mb-1">PIN de Seguridad (4 dígitos para autenticación rápida)</label>
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={dentistPin}
+                    onChange={(e) => setDentistPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Opcional. Ej: 5678"
+                    className="w-full border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 text-center font-bold tracking-widest text-xs"
+                  />
+                </div>
+
+                {/* Active status */}
+                {editingDentist && (
+                  <div className="flex items-center justify-between p-3 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl">
+                    <div>
+                      <span className="font-extrabold text-xs text-slate-800 block">Habilitado en Sucursal</span>
+                      <span className="text-[10px] text-slate-500">¿Permitir pedidos a este cliente?</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={dentistIsActive} 
+                        onChange={(e) => setDentistIsActive(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsDentistModalOpen(false)}
+                    className="flex-1 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all text-xs"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-2.5 rounded-xl shadow-md shadow-emerald-100 hover:scale-[1.01] active:scale-[0.99] transition-all text-xs"
+                  >
+                    {editingDentist ? 'Guardar Cambios' : 'Registrar Odontólogo'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </motion.div>
         )}

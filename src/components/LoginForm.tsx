@@ -6,9 +6,10 @@ import { Shield, Sparkles, MapPin, KeyRound, Smartphone, Mail, Lock, User, Brief
 
 interface LoginFormProps {
   onLoginSuccess: (user: UserProfile) => void;
+  onGoToSplash?: () => void;
 }
 
-export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
+export default function LoginForm({ onLoginSuccess, onGoToSplash }: LoginFormProps) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [regions, setRegions] = useState<Region[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -188,7 +189,11 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         className="w-full max-w-md bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
       >
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-16 h-16 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100/60 mb-3 overflow-hidden shadow-inner">
+          <div 
+            onClick={onGoToSplash}
+            className="w-16 h-16 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100/60 mb-3 overflow-hidden shadow-inner cursor-pointer hover:scale-110 active:scale-95 transition-all"
+            title="Ir al inicio de la app"
+          >
             <img
               src="/src/assets/images/luffy_launcher_icon_1782877105670.jpg"
               alt="Gaiadent"

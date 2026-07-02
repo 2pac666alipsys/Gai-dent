@@ -168,9 +168,16 @@ Por favor, analiza la consulta del usuario y los datos reales proveídos. Genera
     res.json(resultJson);
 
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    const errStr = String(error);
+    const isQuotaError = errStr.includes("429") || errStr.includes("quota") || errStr.includes("RESOURCE_EXHAUSTED") || (error && typeof error === 'object' && ((error as any).status === "RESOURCE_EXHAUSTED" || (error as any).code === 429));
+    
+    if (isQuotaError) {
+      console.warn("Gäyita AI Notice: Gemini API free tier quota exceeded (429). Falling back to offline clinical engine gracefully.");
+    } else {
+      console.error("Gemini API Error:", error);
+    }
     // Graceful error fallback
-    res.json(getOfflineMascotResponse(message, currentRole));
+    res.json(getOfflineMascotResponse(message, currentRole, isQuotaError));
   }
 });
 
@@ -235,11 +242,21 @@ Escribe la respuesta en formato JSON estructurado.`;
     res.json({ ...resultJson, isAiGenerated: true });
 
   } catch (error) {
-    console.error("Gemini Enhancement Error:", error);
+    const errStr = String(error);
+    const isQuotaError = errStr.includes("429") || errStr.includes("quota") || errStr.includes("RESOURCE_EXHAUSTED") || (error && typeof error === 'object' && ((error as any).status === "RESOURCE_EXHAUSTED" || (error as any).code === 429));
+
+    if (isQuotaError) {
+      console.warn("Gäyita AI Notice: Gemini API free tier quota exceeded (429) during product enhancement. Falling back to default spec.");
+    } else {
+      console.error("Gemini Enhancement Error:", error);
+    }
+
     res.json({
-      technicalSpec: `Ficha de respaldo generada para ${name}. Insumo dental certificado.`,
-      useProtocol: `1. Profilaxis y aislamiento del diente.\n2. Colocación de ${name} conforme a protocolo clínico convencional.\n3. Pulido y alta del paciente.`,
-      scientificCitations: [`Asociación Dental Boliviana (Revista 2025).`],
+      technicalSpec: isQuotaError
+        ? `[Ficha de Respaldo - Cuota API 429] Ficha técnica estándar para ${name} (${brand || 'Genérica'}). Producto de alta calidad certificado por Gaiädent.`
+        : `Ficha de respaldo generada para ${name}. Insumo dental certificado.`,
+      useProtocol: `1. Profilaxis y aislamiento absoluto o relativo.\n2. Aplicación de ${name} conforme al protocolo convencional del fabricante.\n3. Verificación de oclusión y pulido final.`,
+      scientificCitations: [`Asociación Dental Boliviana (Revista Científica de Estomatología 2025).`],
       isAiGenerated: false
     });
   }
@@ -248,10 +265,10 @@ Escribe la respuesta en formato JSON estructurado.`;
 // ---------------------------------------------------------
 // OFFLINE RULE-BASED MASCOT ENGINE
 // ---------------------------------------------------------
-function getOfflineMascotResponse(message: string, role: string) {
+function getOfflineMascotResponse(message: string, role: string, isQuotaError: boolean = false) {
   const query = message.toLowerCase();
 
-  let text = "¡Hola! Estoy analizando tu consulta. Como no tengo conexión activa con la API de Gemini en este instante, he activado mis protocolos de sugerencia clínica preestablecidos para asistirte.";
+  let text = "";
   let citations: any[] = [];
   let recommendedProductIds: string[] = [];
 
@@ -289,6 +306,13 @@ function getOfflineMascotResponse(message: string, role: string) {
     text = "¡Excelente consulta! Como Gäyita, te recomiendo explorar el catálogo. Ofrecemos insumos certificados que son consolidados diariamente en Oruro y solicitados directamente a los importadores en Santa Cruz de la Sierra. Esto asegura precios altamente competitivos y frescura garantizada de materiales como siliconas de adición y anestésicos.";
     recommendedProductIds = ["prod-filtek-z250", "prod-singlebond", "prod-limas-c"];
   }
+
+  // Prepend appropriate notice prefix
+  const prefix = isQuotaError
+    ? "⚠️ [Límite de Consultas AI Superado - Modo Respaldo] ¡Hola! He notado que el volumen de consultas de la API de Google Gemini en su plan gratuito ha superado su límite de cuotas (Error 429). Para asistirte sin demoras, he activado temporalmente mi base de conocimiento clínico local de Gaiädent:\n\n"
+    : "¡Hola! Como no tengo conexión activa con la API de Gemini en este instante, he activado mis protocolos de sugerencia clínica y comercial preestablecidos para asistirte:\n\n";
+
+  text = prefix + text;
 
   return { text, citations, recommendedProductIds };
 }
